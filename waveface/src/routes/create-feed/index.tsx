@@ -2,12 +2,16 @@ import { FunctionalComponent, h } from 'preact';
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import style from './style.css';
 
-import Select from 'react-select'
-
 import ig_icon from "../../assets/brand-icons/insta_glyph.png"
 import yt_icon from "../../assets/brand-icons/yt_icon.png"
 
 interface Props {
+}
+
+type ImageData = {
+    src: string
+    width: string
+    height: string
 }
 
 type Feed = {
@@ -19,19 +23,18 @@ type Feed = {
     searched?: boolean
 }
 
-function getPlatformLogo(type: string): string {
-    var logo = ""
+function getPlatformLogo(type: string): ImageData {
+    var logo = {src: "", width: "", height: ""}
 
-    switch(type) {
-        case "ig":
-            logo = ig_icon
-        case "yt":
-            logo = yt_icon
-        default:
-            logo = ""
+    if (type == "ig") {
+        logo.src = ig_icon
+        logo.width = "16px"
+        logo.height = "16px"
+    } else if (type == "yt") {
+        logo.src = yt_icon
+        logo.width = "17px"
+        logo.height = "12px"
     }
-
-    logo = ig_icon
 
     return logo
 }
@@ -39,7 +42,6 @@ function getPlatformLogo(type: string): string {
 const Profile: FunctionalComponent<Props> = (props: Props) => {
     const [feeds, setFeeds] = useState<Feed[]>([]);
     const [selectedFeeds, setSelectedFeeds] = useState<Feed[]>([]);
-    const [selectOptions, setSelectOptions] = useState<any[]>([]);
 
     const [test, setTest] = useState(0)
 
@@ -47,24 +49,7 @@ const Profile: FunctionalComponent<Props> = (props: Props) => {
     useEffect(() => {
         fetch('http://localhost:8000/api/feeds/')
         .then(response => response.json())
-        .then(data => {
-            console.log(data)
-            setFeeds(data)
-
-            var opt: any[] = []
-            data.map((feed: Feed) => {
-                
-                var label = <div style={{display: "flex", alignItems: "center"}}>
-                    <img src={feed.thumbnail} style={{width: "32px", height: "32px", borderRadius: "50%", marginRight: ".5em"}}></img>
-                    <img src={getPlatformLogo(feed.type)} style={{width: "12px", height: "12px", marginRight: ".25em"}}></img>
-                    <h5>{feed.name}</h5>
-                </div>
-                opt.push({value: feed.id, label: label, data: feed})
-            })
-
-            setSelectOptions(opt)
-
-        })
+        .then(data => setFeeds(data))
     }, []);
 
     /* TODO we really should try to find a component or make a generic version */
@@ -91,14 +76,17 @@ const Profile: FunctionalComponent<Props> = (props: Props) => {
         setTest(test + 1)
     }, [feeds, test])
 
-    const selectFeed = useCallback((e: any, index: number) => {
+    const selectFeed = useCallback((e: any, index: number, select: boolean) => {
         var dup = selectedFeeds
 
-        var feed = feeds[index]
-        feed.selected = true
-        feeds[index].selected = true
-
-        dup.push(feed)
+        if (select) {
+            feeds[index].selected = true
+            dup.push(feeds[index])
+        } else {
+            let deselected = dup[index]
+            deselected.selected = false
+            dup.splice(index, 1)
+        }
 
         setFeeds(feeds)
         setSelectedFeeds(dup)
@@ -138,10 +126,13 @@ const Profile: FunctionalComponent<Props> = (props: Props) => {
             <div style={{display: "flex", flexWrap: "wrap"}}>
                 {selectedFeeds.map((feed: Feed, i: number) => {
                     if (feed.selected == true) {
+
+                        let imageData = getPlatformLogo(feed.type)
+
                         return (
-                            <div style={{display: "flex", alignItems: "center", backgroundColor: "#eeeeee", padding: ".25em", margin: ".25em", paddingLeft: ".75em", paddingRight: ".75em", borderRadius: "1em"}} onClick={(e) => selectFeed(e, i)}>
+                            <div style={{display: "flex", alignItems: "center", backgroundColor: "#eeeeee", padding: ".25em", margin: ".25em", paddingLeft: ".75em", paddingRight: ".75em", borderRadius: "1em"}} onClick={(e) => selectFeed(e, i, false)}>
                                 <img src={feed.thumbnail} style={{width: "48px", height: "48px", borderRadius: "50%", marginRight: ".5em"}}></img>
-                                <img src={getPlatformLogo(feed.type)} style={{width: "16px", height: "16px", marginRight: ".25em"}}></img>
+                                <img src={imageData.src} style={{width: imageData.width, height: imageData.height, marginRight: ".25em"}}></img>
                                 <h5>{feed.name}</h5>
                             </div>
                         )
@@ -158,10 +149,13 @@ const Profile: FunctionalComponent<Props> = (props: Props) => {
                 {feeds.map((feed: Feed, i: number) => {
                     if ( (feed.selected == null || feed.selected == false) && 
                          (feed.searched == null || feed.searched == true) ) {
+
+                        let imageData = getPlatformLogo(feed.type)
+
                         return (
-                            <div style={{display: "flex", alignItems: "center", backgroundColor: "#eeeeee", padding: ".25em", margin: ".25em", paddingLeft: ".75em", paddingRight: ".75em", borderRadius: "1em"}} onClick={(e) => selectFeed(e, i)}>
+                            <div style={{display: "flex", alignItems: "center", backgroundColor: "#eeeeee", padding: ".25em", margin: ".25em", paddingLeft: ".75em", paddingRight: ".75em", borderRadius: "1em"}} onClick={(e) => selectFeed(e, i, true)}>
                                 <img src={feed.thumbnail} style={{width: "48px", height: "48px", borderRadius: "50%", marginRight: ".5em"}}></img>
-                                <img src={getPlatformLogo(feed.type)} style={{width: "16px", height: "16px", marginRight: ".25em"}}></img>
+                                <img src={imageData.src} style={{width: imageData.width, height: imageData.height, marginRight: ".25em"}}></img>
                                 <h5>{feed.name}</h5>
                             </div>
                         )
@@ -169,22 +163,6 @@ const Profile: FunctionalComponent<Props> = (props: Props) => {
                 })}
             </div>
 
-
-            <Select
-                name="selectedFeeds"
-                options={selectOptions}
-                isMulti
-            />
-
-{/* 
-            <p>This is the user profile for a user named {user}.</p>
-
-            <div>Current time: {new Date(time).toLocaleString()}</div>
-
-            <p>
-                <button onClick={increment}>Click Me</button> Clicked {count}{' '}
-                times.
-            </p> */}
         </div>
     );
 };
